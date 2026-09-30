@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cortan Matt: The Ultimate Cosmic Singularity</title>
+<style>
+  :root { --ink:#ece6da; --dim:#8d877a; --amber:#ffb454; }
+  html, body { margin:0; height:100%; overflow:hidden; background:#000; }
+  canvas { display:block; position:fixed; inset:0; width:100%; height:100%; touch-action:none; cursor:grab; }
+  canvas:active { cursor:grabbing; }
+  #ui { position:fixed; top:16px; left:16px; z-index:10; width:300px; box-sizing:border-box; padding:15px 17px 12px;
+    color:var(--ink); font:12px/1.4 Menlo, Consolas, "Liberation Mono", monospace;
+    background:rgba(8,8,10,.55); border:1px solid rgba(255,255,255,.12); border-radius:6px;
+    -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px); box-shadow:0 12px 40px rgba(0,0,0,.65); }
+  #ui h1 { margin:0 0 6px; font-size:14px; line-height:1.3; font-weight:600; }
+  #ui p { margin:0 0 14px; color:var(--dim); font-size:11px; line-height:1.5; }
+  .row { margin-bottom:12px; }
+  .row label { display:flex; justify-content:space-between; margin-bottom:6px; color:var(--dim); }
+  .row output { color:var(--amber); }
+  input[type=range] { -webkit-appearance:none; appearance:none; width:100%; height:2px; margin:0; background:rgba(255,255,255,.22); cursor:pointer; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:12px; height:12px; border-radius:50%; background:var(--amber); box-shadow:0 0 10px rgba(255,180,84,.7); }
+  input[type=range]::-moz-range-thumb { width:12px; height:12px; border:0; border-radius:50%; background:var(--amber); }
+  #fps { color:var(--dim); font-size:11px; }
+  #ui h1 { padding-right:32px; }
+  #eyeBtn { position:absolute; top:10px; right:10px; width:28px; height:28px; padding:0; display:flex; align-items:center; justify-content:center;
+    color:var(--amber); background:transparent; border:1px solid rgba(255,255,255,.14); border-radius:6px; cursor:pointer; transition:background .15s, box-shadow .15s; }
+  #eyeBtn:hover { background:rgba(255,180,84,.14); box-shadow:0 0 10px rgba(255,180,84,.35); }
+  #eyeBtn svg { width:16px; height:16px; }
+  #eyeBtn .off { display:none; }
+  #ui.collapsed { width:40px; height:40px; padding:0; }
+  #ui.collapsed > :not(#eyeBtn) { display:none; }
+  #ui.collapsed #eyeBtn { top:5px; right:5px; }
+  #ui.collapsed #eyeBtn .on { display:none; }
+  #ui.collapsed #eyeBtn .off { display:block; }
+</style>
+</head>
+<body>
+<div id="ui">
+  <button id="eyeBtn" type="button" aria-label="Hide controls" aria-pressed="false" title="Hide / show controls">
+    <svg class="on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+    <svg class="off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+  </button>
+  <h1>Cortan Matt: The Ultimate Cosmic Singularity</h1>
+  <p>A birthday tribute to my brilliant ijado cousin, whose mind operates on a frequency higher than any quantum computer. You are easily one of the most genius minds in this or any parallel universe.</p>
+  <div class="row"><label for="mass">Mass (horizon radius) <output id="massV"></output></label>
+    <input id="mass" type="range" min="0.5" max="1.5" step="0.01" value="1"></div>
+  <div class="row"><label for="disk">Disk outer radius <output id="diskV"></output></label>
+    <input id="disk" type="range" min="6" max="16" step="0.1" value="13"></div>
+  <div class="row"><label for="pitch">Camera pitch <output id="pitchV"></output></label>
+    <input id="pitch" type="range" min="-0.6" max="0.6" step="0.01" value="0.12"></div>
+  <div class="row"><label for="speed">Disk rotation <output id="speedV"></output></label>
+    <input id="speed" type="range" min="0" max="6" step="0.05" value="2"></div>
+  <div class="row"><label for="galaxy">Galaxy / nebula opacity <output id="galaxyV"></output></label>
+    <input id="galaxy" type="range" min="0" max="1" step="0.01" value="0.8"></div>
+  <div class="row"><label for="stars">Star brightness <output id="starsV"></output></label>
+    <input id="stars" type="range" min="0" max="2" step="0.01" value="1"></div>
+  <div id="fps">-- fps</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script id="vs" type="x-shader/x-vertex">
+  void main() { gl_Position = vec4(position.xy, 0.0, 1.0); }
+</script>
+
+<script id="fs" type="x-shader/x-fragment">
+  precision highp float;
+  uniform vec2  u_res;
+  uniform float u_time, u_mass, u_disk, u_pitch, u_yaw, u_speed, u_galaxy, u_stars;
+
+  const int   STEPS = 240;
+  const float PI    = 3.14159265;
+  const float CAM   = 28.0;
+  const float FOCAL = 1.7;
+  const float ESC   = 45.0;
+
+  float hash21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+  float hash31(vec3 p) { p = fract(p * vec3(.1031, .1030, .0973)); p += dot(p, p.yxz + 33.33); return fract((p.x + p.y) * p.z); }
+
+  // value noise, periodic in x (seamless around the disk); use per = 1000 for non-periodic use
+  float pnoise(vec2 p, float per) {
+    vec2 i = floor(p), f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    float x0 = mod(i.x, per), x1 = mod(i.x + 1.0, per);
+    return mix(mix(hash21(vec2(x0, i.y)), hash21(vec2(x1, i.y)), f.x),
+               mix(hash21(vec2(x0, i.y + 1.0)), hash21(vec2(x1, i.y + 1.0)), f.x), f.y);
+  }
+  float pfbm(vec2 p, float per) {
+    float a = .5, s = 0.0;
+    for (int i = 0; i < 4; i++) { s += a * pnoise(p, per); p *= 2.0; per *= 2.0; a *= .5; }
+    return s;
+  }
+
+  // warm sepia-gold palette: brown -> amber -> gold -> cream
+  vec3 gold(float x) {
+    x = max(x, 0.0);
+    vec3 c = mix(vec3(0.0), vec3(.30, .16, .06), smoothstep(0.0, .2, x));
+    c = mix(c, vec3(.80, .47, .15), smoothstep(.15, .55, x));
+    c = mix(c, vec3(1.0, .74, .34), smoothstep(.5, 1.0, x));
+    return mix(c, vec3(1.0, .94, .80), smoothstep(.95, 1.8, x));
+  }
+
+  // distant spiral galaxy billboard on the celestial sphere
+  vec3 galaxy(vec3 d, vec3 c, float size, float tilt, vec3 tint) {
+    if (dot(d, c) < .5) return vec3(0.0);
+    vec3 t1 = normalize(cross(c, vec3(0.0, 1.0, 0.0)));
+    vec3 t2 = cross(c, t1);
+    vec2 q = vec2(dot(d, t1), dot(d, t2)) / size;
+    q = vec2(cos(tilt) * q.x - sin(tilt) * q.y, sin(tilt) * q.x + cos(tilt) * q.y);
+    q.y *= 2.2;                                           // inclination
+    float r = length(q) + 1e-4;
+    float th = atan(q.y, q.x);
+    float arms = .5 + .5 * cos(2.0 * th - 5.0 * log(r + .05));
+    float n = pfbm(q * 6.0, 1000.0);
+    return tint * (exp(-r * 2.2) * (.35 + .65 * arms) * (.6 + .8 * n) + exp(-r * 9.0) * 1.4);
+  }
+
+  vec3 sky(vec3 d) {
+    float ca = cos(u_time * .015), sa = sin(u_time * .015);
+    d = vec3(ca * d.x + sa * d.z, d.y, -sa * d.x + ca * d.z);   // slow drift
+
+    vec3 st = vec3(0.0);
+    for (int k = 0; k < 2; k++) {
+      vec3 q = d * (110.0 - 50.0 * float(k));
+      vec3 c = floor(q), f = fract(q) - .5;
+      if (hash31(c + float(k) * 13.0) > .965) {
+        vec3 o = (vec3(hash31(c + 1.7), hash31(c + 4.1), hash31(c + 8.3)) - .5) * .5;
+        float s = 1.0 - smoothstep(0.0, .2, length(f - o));
+        st += mix(vec3(.75, .82, 1.0), vec3(1.0, .88, .7), hash31(c + 5.5)) * s * (.4 + 1.8 * hash31(c + 2.9));
+      }
+    }
+
+    float band = exp(-pow(dot(d, normalize(vec3(.3, 1.0, .2))), 2.0) * 8.0);
+    float n1 = pfbm(d.xy * 3.0 + d.z * 2.0, 1000.0);
+    float n2 = pfbm(d.yz * 6.0 + d.x * 4.0 + 7.0, 1000.0);
+    vec3 neb = vec3(.30, .26, .22) * n1 * n1 * (.5 + band) + vec3(.16, .18, .28) * n2 * n2 * n2 * band * 1.6;
+    vec3 gal = galaxy(d, normalize(vec3(.45, .25, .85)), .07, .5, vec3(.85, .78, .95))
+             + galaxy(d, normalize(vec3(-.6, -.2, .75)), .05, -.8, vec3(1.0, .85, .65)) * .8;
+
+    return st * u_stars + (neb * .9 + gal) * u_galaxy;
+  }
+
+  vec4 diskShade(vec3 hit, vec3 v, float rs, float rin, float rout) {
+    float r = length(hit.xz);
+    float edge = smoothstep(rin, rin * 1.03, r) * (1.0 - smoothstep(rout * .5, rout, r));
+    if (edge <= 0.0) return vec4(0.0);
+
+    float beta  = sqrt(.5 * rs / r);                     // Keplerian speed (c = 1)
+    float omega = beta / r;                              // differential rotation
+    float ang   = (atan(hit.z, hit.x) + u_time * u_speed * omega * 14.0) / (2.0 * PI);
+    float grain = pfbm(vec2(ang * 80.0, r * 12.0), 80.0);
+    float swirl = pfbm(vec2(ang * 10.0, r * 3.0), 10.0);
+    float streak = .8 + .3 * grain + .45 * (swirl - .5);
+
+    vec3  tang = vec3(hit.z, 0.0, -hit.x) / r;
+    float gam  = inversesqrt(1.0 - beta * beta);
+    float D    = 1.0 / (gam * (1.0 - beta * dot(tang, -v)));   // Doppler beaming
+    float g    = D * sqrt(max(1.0 - rs / r, .02));              // + gravitational redshift
+
+    float I = pow(rin / r, 2.0) * streak * pow(g, 2.2) * 1.7;
+    return vec4(gold(I) * edge, edge * .95);
+  }
+
+  void main() {
+    vec2 uv = (gl_FragCoord.xy - .5 * u_res) / min(u_res.x, u_res.y);
+    float rs = u_mass, rin = 3.0 * rs, rout = max(u_disk, rin + 1.5);
+
+    float cp = cos(u_pitch);
+    vec3 ro  = CAM * vec3(sin(u_yaw) * cp, sin(u_pitch), -cos(u_yaw) * cp);
+    vec3 fwd = normalize(-ro);
+    vec3 rgt = normalize(cross(fwd, vec3(0.0, 1.0, 0.0)));
+    vec3 upv = cross(rgt, fwd);
+    vec3 v   = normalize(fwd * FOCAL + rgt * uv.x + upv * uv.y);
+    vec3 p   = ro;
+
+    vec3 acc = vec3(0.0);
+    float trans = 1.0;
+    bool dead = false;
+
+    for (int i = 0; i < STEPS; i++) {
+      float r2 = dot(p, p);
+      float r  = sqrt(r2);
+      if (r < rs) { dead = true; break; }                 // event horizon
+      if (r > ESC && dot(p, v) > 0.0) break;              // escaped
+
+      float dt = clamp(.04 * r, .02, 1.0);
+      vec3  h  = cross(p, v);
+      vec3  a  = -1.5 * rs * dot(h, h) * p / (r2 * r2 * r);   // Schwarzschild null geodesic
+      v = normalize(v + a * dt);
+
+      vec3 prev = p;
+      p += v * dt;
+
+      acc += trans * gold(.9) * exp(-pow((r - 1.5 * rs) / (.07 * rs), 2.0)) * dt * .9;   // photon ring
+
+      if (prev.y * p.y < 0.0 && trans > .02) {            // equatorial disk crossing
+        vec3 hit = mix(prev, p, prev.y / (prev.y - p.y));
+        float hr = length(hit.xz);
+        if (hr > rin && hr < rout) {
+          vec4 d = diskShade(hit, v, rs, rin, rout);
+          acc += trans * d.rgb;
+          trans *= 1.0 - d.a;
+        }
+      }
+    }
+
+    vec3 col = acc;
+    if (!dead) col += trans * sky(normalize(v));
+    col = 1.0 - exp(-col * 1.6);
+    col = pow(col, vec3(.9));
+    col *= 1.0 - .35 * dot(uv, uv);
+    gl_FragColor = vec4(col, 1.0);
+  }
+</script>
+
+<script>
+(function () {
+  'use strict';
+  function fail(msg) {
+    var pre = document.createElement('pre');
+    pre.style.cssText = 'position:fixed;left:16px;right:16px;bottom:16px;max-height:45%;overflow:auto;margin:0;padding:12px;' +
+      'z-index:20;color:#ff8a7a;background:rgba(0,0,0,.88);font:11px/1.4 monospace;white-space:pre-wrap;border:1px solid #ff8a7a';
+    pre.textContent = msg;
+    document.body.appendChild(pre);
+  }
+  if (typeof THREE === 'undefined') { fail('Three.js failed to load. Check your network connection.'); return; }
+
+  var renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', alpha: false, stencil: false, depth: false });
+  } catch (e) { fail('WebGL is not available in this browser.\n' + e.message); return; }
+
+  var dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+  var quality = 1;                       // adaptive resolution multiplier
+  document.body.appendChild(renderer.domElement);
+
+  var scene = new THREE.Scene();
+  var camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  var U = {
+    u_time: { value: 0 }, u_res: { value: new THREE.Vector2(1, 1) },
+    u_mass: { value: 1 }, u_disk: { value: 13 }, u_pitch: { value: 0.12 },
+    u_yaw: { value: 0 }, u_speed: { value: 2 },
+    u_galaxy: { value: 0.8 }, u_stars: { value: 1 }
+  };
+  var mat = new THREE.ShaderMaterial({
+    uniforms: U,
+    vertexShader: document.getElementById('vs').textContent,
+    fragmentShader: document.getElementById('fs').textContent,
+    depthTest: false, depthWrite: false
+  });
+  var quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat);
+  quad.frustumCulled = false;
+  scene.add(quad);
+
+  function resize() {
+    renderer.setPixelRatio(dpr * quality);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.getDrawingBufferSize(U.u_res.value);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // sliders
+  var sliders = {};
+  function bind(id, out, key, digits) {
+    var el = document.getElementById(id), o = document.getElementById(out);
+    if (!el || !o) return;
+    function apply() {
+      var v = parseFloat(el.value);
+      if (!isFinite(v)) return;
+      U[key].value = v; o.textContent = v.toFixed(digits);
+    }
+    el.addEventListener('input', apply); apply();
+    sliders[key] = { el: el, apply: apply };
+  }
+  bind('mass', 'massV', 'u_mass', 2);
+  bind('disk', 'diskV', 'u_disk', 1);
+  bind('pitch', 'pitchV', 'u_pitch', 2);
+  bind('speed', 'speedV', 'u_speed', 2);
+  bind('galaxy', 'galaxyV', 'u_galaxy', 2);
+  bind('stars', 'starsV', 'u_stars', 2);
+
+  // eye button: hide / show the control panel
+  var ui = document.getElementById('ui'), eye = document.getElementById('eyeBtn');
+  eye.addEventListener('click', function () {
+    var hidden = ui.classList.toggle('collapsed');
+    eye.setAttribute('aria-pressed', hidden);
+    eye.setAttribute('aria-label', hidden ? 'Show controls' : 'Hide controls');
+  });
+
+  // drag to orbit
+  var dragging = false, lx = 0, ly = 0, cv = renderer.domElement;
+  cv.addEventListener('pointerdown', function (e) { dragging = true; lx = e.clientX; ly = e.clientY; cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener('pointerup', function () { dragging = false; });
+  cv.addEventListener('pointercancel', function () { dragging = false; });
+  cv.addEventListener('pointermove', function (e) {
+    if (!dragging) return;
+    U.u_yaw.value -= (e.clientX - lx) * 0.005;
+    var p = Math.max(-0.6, Math.min(0.6, U.u_pitch.value + (e.clientY - ly) * 0.004));
+    U.u_pitch.value = p;
+    if (sliders.u_pitch) { sliders.u_pitch.el.value = p; sliders.u_pitch.apply(); }
+    lx = e.clientX; ly = e.clientY;
+  });
+
+  cv.addEventListener('webglcontextlost', function (e) { e.preventDefault(); fail('WebGL context lost. Reload the page.'); });
+
+  // loop with adaptive resolution
+  var clock = new THREE.Clock(), fpsEl = document.getElementById('fps'), frames = 0, acc = 0;
+  function frame() {
+    requestAnimationFrame(frame);
+    var dt = Math.min(clock.getDelta(), 0.1);
+    U.u_time.value += dt;
+    renderer.render(scene, camera);
+    frames++; acc += dt;
+    if (acc >= 1) {
+      var fps = frames / acc;
+      if (fpsEl) fpsEl.textContent = Math.round(fps) + ' fps · ' + Math.round(quality * 100) + '% res';
+      if (fps < 28 && quality > 0.4) { quality *= 0.8; resize(); }
+      else if (fps > 56 && quality < 1) { quality = Math.min(1, quality * 1.1); resize(); }
+      frames = 0; acc = 0;
+    }
+  }
+  frame();
+
+  // surface shader compile errors on screen
+  setTimeout(function () {
+    try {
+      var progs = renderer.info.programs || [], msg = '';
+      for (var i = 0; i < progs.length; i++) {
+        var d = progs[i].diagnostics;
+        if (d && d.runnable === false) msg += (d.programLog || '') + '\n' + (d.fragmentShader ? d.fragmentShader.log : '') + '\n';
+      }
+      if (!progs.length) msg = 'No shader program was created.';
+      if (msg.trim()) fail('Shader error:\n' + msg);
+    } catch (e) {}
+  }, 800);
+})();
+</script>
+</body>
+</html>
